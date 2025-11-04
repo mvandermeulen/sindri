@@ -198,10 +198,18 @@ install_plugins_from_file() {
   done < "$PLUGINS_FILE"
 
   echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   print_status "Plugin installation summary:"
-  echo "  Total: $plugin_count"
+  echo "  Total plugins: $plugin_count"
   echo "  Installed: $installed_count"
   echo "  Failed: $failed_count"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if [ "$failed_count" -gt 0 ]; then
+    print_warning "Some plugins failed to install"
+  else
+    print_success "All plugins installed successfully"
+  fi
 }
 
 # ============================================================================
@@ -210,6 +218,25 @@ install_plugins_from_file() {
 
 configure() {
   print_status "Configuring ${EXT_NAME}..."
+
+  # In CI mode, ensure .plugins file exists and install plugins
+  # This handles the case where extension was pre-installed
+  if is_ci_mode; then
+    if [[ ! -f "$PLUGINS_FILE" ]]; then
+      print_status "CI mode: Creating .plugins from CI template..."
+      if cp "$SCRIPT_DIR/.plugins.ci.example" "$PLUGINS_FILE"; then
+        print_success "Created $PLUGINS_FILE from CI template (3 test plugins)"
+      else
+        print_warning "Could not create CI plugins file"
+      fi
+    fi
+
+    # Install plugins if .plugins file exists
+    if [[ -f "$PLUGINS_FILE" ]]; then
+      print_status "CI mode: Installing plugins from .plugins file..."
+      install_plugins_from_file
+    fi
+  fi
 
   # Verify marketplace is accessible
   print_status "Verifying marketplace configuration..."
@@ -290,6 +317,44 @@ validate() {
   if ! command_exists git; then
     print_error "git not found (required for plugin installation)"
     all_valid=false
+  fi
+
+  # Verify plugins were installed in CI mode
+  if is_ci_mode; then
+    print_status "CI mode: Verifying plugin installation..."
+
+    # Check .plugins file exists
+    if [[ ! -f "$PLUGINS_FILE" ]]; then
+      print_error ".plugins file not found (expected in CI mode)"
+      all_valid=false
+    else
+      print_success ".plugins file exists"
+
+      # Count expected plugins
+      expected_count=$(grep -v '^#' "$PLUGINS_FILE" | grep -v '^$' | wc -l | tr -d ' ')
+      print_status "Expected plugins: $expected_count"
+
+      # List installed plugins
+      if command_exists claude; then
+        print_status "Installed plugins:"
+        if timeout 10s claude /plugin list 2>&1 | tee /tmp/plugins.txt; then
+          # Count installed plugins (look for owner/repo pattern)
+          installed_count=$(grep -c '/' /tmp/plugins.txt || echo "0")
+          echo "  Installed count: $installed_count"
+
+          if [ "$installed_count" -ge "$expected_count" ]; then
+            print_success "All expected plugins installed ($installed_count/$expected_count)"
+          else
+            print_error "Expected $expected_count plugins, found $installed_count"
+            cat /tmp/plugins.txt || true
+            all_valid=false
+          fi
+        else
+          print_error "Could not list plugins"
+          all_valid=false
+        fi
+      fi
+    fi
   fi
 
   if [[ "$all_valid" == "true" ]]; then

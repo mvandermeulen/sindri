@@ -62,7 +62,7 @@ jobs:
           - { name: "nodejs-devtools", commands: "tsc,eslint,prettier", key_tool: "tsc", timeout: "15m", depends_on: "mise-config,nodejs" }
           # Claude AI extensions
           - { name: "claude", commands: "claude", key_tool: "claude", timeout: "15m" }
-          - { name: "claude-marketplace", commands: "claude", key_tool: "claude", timeout: "15m", depends_on: "claude" }
+          - { name: "claude-marketplace", commands: "claude", key_tool: "claude-marketplace", timeout: "15m", depends_on: "claude" }
           - { name: "openskills", commands: "openskills", key_tool: "openskills", timeout: "15m", depends_on: "nodejs" }
           # Traditional extensions (unchanged)
           - { name: "ruby", commands: "ruby,gem,bundle", key_tool: "ruby", timeout: "30m", status_timeout: 2 }

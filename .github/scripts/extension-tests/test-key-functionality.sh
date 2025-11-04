@@ -50,6 +50,54 @@ case "$key_tool" in
         print_success "Claude CLI functionality verified"
         ;;
 
+    claude-marketplace)
+        print_info "Testing Claude marketplace integration..."
+
+        # Test 1: Verify marketplace is configured
+        if grep -q "claudecodemarketplace" ~/.claude/settings.json; then
+            print_success "Marketplace configured in settings.json"
+        else
+            print_error "Marketplace not configured"
+            exit 1
+        fi
+
+        # Test 2: Verify .plugins file exists (CI mode)
+        if [ -n "$CI_MODE" ]; then
+            if [ ! -f "/workspace/.plugins" ]; then
+                print_error ".plugins file missing in CI mode"
+                exit 1
+            else
+                print_success ".plugins file exists"
+                expected_count=$(grep -v '^#' /workspace/.plugins | grep -v '^$' | wc -l | tr -d ' ')
+                print_info "Expected plugins: $expected_count"
+            fi
+        fi
+
+        # Test 3: List and count installed plugins
+        print_info "Listing installed plugins..."
+        if timeout 15s claude /plugin list 2>&1 | tee /tmp/plugin-list.txt; then
+            plugin_count=$(grep -c '/' /tmp/plugin-list.txt || echo "0")
+            echo ""
+            print_info "Found $plugin_count installed plugins:"
+            cat /tmp/plugin-list.txt
+            echo ""
+
+            if [ -n "$CI_MODE" ]; then
+                if [ "$plugin_count" -lt 3 ]; then
+                    print_error "Expected at least 3 plugins in CI mode, found $plugin_count"
+                    exit 1
+                fi
+                print_success "Plugin count verified: $plugin_count (expected: $expected_count)"
+            else
+                print_success "Plugin listing successful: $plugin_count plugins"
+            fi
+        else
+            print_warning "Could not list plugins (may need authentication)"
+        fi
+
+        print_success "Claude marketplace functionality verified"
+        ;;
+
     tsc)
         print_info "Testing TypeScript..."
         tsc --version
