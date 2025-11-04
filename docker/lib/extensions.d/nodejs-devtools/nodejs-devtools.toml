@@ -11,6 +11,7 @@
 "npm:prettier" = "latest"
 "npm:nodemon" = "latest"
 "npm:goalie" = "latest"
+"npm:research-swarm" = "latest"
 
 [tasks.format]
 description = "Format code with Prettier"

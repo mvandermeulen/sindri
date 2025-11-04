@@ -183,7 +183,20 @@ While not protected, these are highly recommended as many tools depend on them.
 | `claude`             | Claude Code CLI with developer configuration                    | native             | 2.0.0   | -                   |
 | `claude-marketplace` | Plugin installer for https://claudecodemarketplace.com/         | native             | 2.0.0   | claude, git         |
 | `openskills`         | OpenSkills CLI for managing Claude Code skills from marketplace | npm                | 2.0.0   | nodejs (20.6+), git |
-| `nodejs-devtools`    | TypeScript, ESLint, Prettier, nodemon, goalie                   | mise (npm backend) | 2.0.0   | nodejs, mise-config |
+| `nodejs-devtools`    | TypeScript, ESLint, Prettier, nodemon, goalie, research-swarm   | mise (npm backend) | 2.0.0   | nodejs, mise-config |
+
+#### nodejs-devtools Tools
+
+The `nodejs-devtools` extension provides essential development tools via npm:
+
+- **TypeScript** ([typescript](https://www.npmjs.com/package/typescript), [ts-node](https://www.npmjs.com/package/ts-node)) - Type-safe JavaScript development
+- **ESLint** ([eslint](https://www.npmjs.com/package/eslint), [@typescript-eslint/parser](https://www.npmjs.com/package/@typescript-eslint/parser), [@typescript-eslint/eslint-plugin](https://www.npmjs.com/package/@typescript-eslint/eslint-plugin)) - Code linting and style enforcement with TypeScript support
+- **Prettier** ([prettier](https://www.npmjs.com/package/prettier)) - Opinionated code formatter
+- **nodemon** ([nodemon](https://www.npmjs.com/package/nodemon)) - Auto-reload development server
+- **goalie** ([goalie](https://www.npmjs.com/package/goalie)) - AI-powered research assistant with GOAP planning
+- **research-swarm** ([research-swarm](https://www.npmjs.com/package/research-swarm)) - AI research orchestration framework
+
+All tools are managed via mise with the npm backend, ensuring version consistency and easy upgrades.
 
 ### Additional Language Runtimes
 
