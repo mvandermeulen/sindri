@@ -2,8 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+All notable changes to this project will be documented in this file.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0-rc.2] - 2025-11-04
+
+### ✨ Features
+
+* feat(nodejs-devtools): add research-swarm AI research orchestration tool (27b2ed6)
+* feat(claude-marketplace): add authentication check before plugin installation (bfb8b8f)
+
+### 🐛 Bug Fixes
+
+* fix(claude-marketplace): verify marketplace config in status() before returning success (fb9f372)
+* fix(ci): add comprehensive plugin installation testing for claude-marketplace extension (5c9dc22)
+* fix: update jvm.sh.example extension - Java 25 is latest/current LTS release (504a392)
+
+### 📚 Documentation
+
+* docs: update CHANGELOG.md for v1.0.0-rc.1 (190f27e)
+
+### 🔧 Other Changes
+
+* Feature: UX Improvements (#9) (b41f184)
+
+
+### 📦 Installation
+
+To use this version:
+
+```bash
+git clone https://github.com/pacphi/sindri.git
+cd sindri
+git checkout v1.0.0-rc.2
+./scripts/vm-setup.sh --app-name my-sindri-dev
+```
+
+**Full Changelog**: https://github.com/pacphi/sindri/compare/v1.0.0-rc.1...v1.0.0-rc.2
 
 ## [1.0.0-rc.1] - 2025-10-23
 
