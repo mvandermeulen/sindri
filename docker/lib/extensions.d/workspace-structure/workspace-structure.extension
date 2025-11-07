@@ -14,7 +14,7 @@ source "$(dirname "$(dirname "$SCRIPT_DIR")")/extensions-common.sh"
 # ============================================================================
 
 EXT_NAME="workspace-structure"
-EXT_VERSION="3.0.0"
+EXT_VERSION="2.1.0"
 EXT_API_VERSION="2.0"
 EXT_DESCRIPTION="Creates workspace directory structure (multi-project design)"
 EXT_CATEGORY="infrastructure"
