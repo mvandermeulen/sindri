@@ -68,20 +68,33 @@ install() {
     return 1
   fi
 
-  # The installer adds Claude to PATH via shell config
-  # Need to source the config or use explicit path
-  local claude_path="$HOME/.local/bin/claude"
+  # The installer places Claude at ~/.local/bin/claude (symlink to versioned binary)
+  # but does NOT modify shell config to add ~/.local/bin to PATH
+  local claude_bin_dir="$HOME/.local/bin"
+  local claude_path="$claude_bin_dir/claude"
 
-  # Verify installation
-  if [[ -f "$claude_path" ]] || command_exists claude; then
-    # Try to get version - reload shell environment first
-    export PATH="$HOME/.local/bin:$PATH"
-    local claude_version=$(claude --version 2>/dev/null || echo "Installed successfully")
+  # Verify installation (check symlink with -L)
+  if [[ -L "$claude_path" ]] || [[ -f "$claude_path" ]]; then
+    # Add ~/.local/bin to PATH for this session
+    export PATH="$claude_bin_dir:$PATH"
+
+    # Verify the binary works
+    local claude_version=$("$claude_path" --version 2>/dev/null || echo "Installed successfully")
     print_success "Claude Code installed: $claude_version"
-    print_status "Location: $HOME/.local/bin/claude"
+    print_status "Location: $claude_path"
+
+    # Add ~/.local/bin to PATH in shell config (installer doesn't do this)
+    if ! grep -q "/.local/bin" "$HOME/.bashrc" 2>/dev/null; then
+      echo "" >> "$HOME/.bashrc"
+      echo "# Added by claude extension - Claude Code binary location" >> "$HOME/.bashrc"
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+      print_success "Added ~/.local/bin to PATH in .bashrc"
+    else
+      print_status "~/.local/bin already in .bashrc PATH"
+    fi
   else
-    print_warning "Claude Code installed but command not found in PATH"
-    print_status "You may need to reload your shell or run: source ~/.bashrc"
+    print_error "Claude Code binary not found at: $claude_path"
+    print_status "Installer may have failed silently"
     return 1
   fi
 
@@ -171,13 +184,14 @@ validate() {
   export PATH="$HOME/.local/bin:$PATH"
 
   local all_valid=true
+  local claude_path="$HOME/.local/bin/claude"
 
-  # Check claude command exists
-  if ! command_exists claude && [[ ! -f "$HOME/.local/bin/claude" ]]; then
-    print_error "claude command not found"
+  # Check claude command exists (check for symlink or file)
+  if ! command_exists claude && [[ ! -L "$claude_path" ]] && [[ ! -f "$claude_path" ]]; then
+    print_error "claude command not found at $claude_path"
     all_valid=false
   else
-    local claude_version=$(claude --version 2>/dev/null || echo "Not authenticated")
+    local claude_version=$("$claude_path" --version 2>/dev/null || echo "Not authenticated")
     print_success "claude: $claude_version"
   fi
 
@@ -233,8 +247,10 @@ status() {
   # Ensure claude is in PATH
   export PATH="$HOME/.local/bin:$PATH"
 
-  # Check installation status
-  if ! command_exists claude && [[ ! -f "$HOME/.local/bin/claude" ]]; then
+  local claude_path="$HOME/.local/bin/claude"
+
+  # Check installation status (check for symlink or file)
+  if ! command_exists claude && [[ ! -L "$claude_path" ]] && [[ ! -f "$claude_path" ]]; then
     echo "Status: ✗ NOT INSTALLED"
     return 1
   fi
@@ -244,9 +260,15 @@ status() {
 
   # Extension-specific tool listing with versions
   print_status "Installed tools:"
-  local claude_version=$(claude --version 2>/dev/null || echo "Not authenticated")
+  local claude_version=$("$claude_path" --version 2>/dev/null || echo "Not authenticated")
   echo "  ✓ claude: $claude_version"
-  echo "  Location: $HOME/.local/bin/claude"
+  echo "  Location: $claude_path"
+
+  # Show symlink target if it's a symlink
+  if [[ -L "$claude_path" ]]; then
+    local target=$(readlink "$claude_path")
+    echo "  Symlink target: $target"
+  fi
   echo ""
 
   print_status "Authentication: Check with 'claude' command"
@@ -284,10 +306,12 @@ upgrade() {
   # Ensure claude is in PATH
   export PATH="$HOME/.local/bin:$PATH"
 
+  local claude_path="$HOME/.local/bin/claude"
+
   # Get current version
   print_status "Current version:"
-  if command_exists claude || [[ -f "$HOME/.local/bin/claude" ]]; then
-    local current_version=$(claude --version 2>/dev/null || echo "version check failed")
+  if command_exists claude || [[ -L "$claude_path" ]] || [[ -f "$claude_path" ]]; then
+    local current_version=$("$claude_path" --version 2>/dev/null || echo "version check failed")
     echo "  claude: $current_version"
   else
     echo "  claude: not installed"
@@ -301,8 +325,8 @@ upgrade() {
 
     echo ""
     print_status "Updated version:"
-    if command_exists claude || [[ -f "$HOME/.local/bin/claude" ]]; then
-      local new_version=$(claude --version 2>/dev/null || echo "version check failed")
+    if command_exists claude || [[ -L "$claude_path" ]] || [[ -f "$claude_path" ]]; then
+      local new_version=$("$claude_path" --version 2>/dev/null || echo "version check failed")
       echo "  claude: $new_version"
     fi
 
