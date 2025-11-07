@@ -122,7 +122,7 @@ jobs:
           echo "Running shellcheck on all shell scripts..."
 
           # Find all shell scripts (.sh and .extension files)
-          scripts=$(find . -name "*.sh" -o -name "*.extension" -type f | grep -v node_modules | grep -v .git)
+          scripts=$(find . -name "*.sh" -o -name "*.extension" -type f | grep -v node_modules | grep -v '/.git/')
 
           failed_scripts=()
           for script in $scripts; do
@@ -374,7 +374,7 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-          yaml_files=$(find . -name "*.yml" -o -name "*.yaml" | grep -v .git | grep -v node_modules)
+          yaml_files=$(find . -name "*.yml" -o -name "*.yaml" | grep -v '/.git/' | grep -v node_modules)
 
           failed_files=()
           for file in $yaml_files; do

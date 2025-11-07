@@ -322,7 +322,7 @@ run_with_error_capture() {
     if [ -s "$stderr_file" ]; then
         echo ""
         print_warning "Error output:"
-        cat "$stderr_file" | sed 's/^/  /'
+        sed 's/^/  /' < "$stderr_file"
     fi
 
     # Cleanup
