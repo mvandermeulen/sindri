@@ -1,0 +1,165 @@
+name: Cleanup Workflow Logs
+
+on:
+  schedule:
+    # Run weekly on Sundays at 5:00 AM UTC (after other scheduled workflows)
+    - cron: '0 5 * * 0'
+
+  workflow_dispatch:
+    inputs:
+      runs_to_keep:
+        description: 'Number of recent runs to keep per workflow'
+        required: false
+        default: '3'
+        type: string
+      dry_run:
+        description: 'Dry run mode (preview deletions without executing)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  # Default number of runs to keep per workflow
+  DEFAULT_RUNS_TO_KEEP: 3
+
+jobs:
+  cleanup:
+    name: Clean up old workflow runs
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Cleanup workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNS_TO_KEEP: ${{ inputs.runs_to_keep || env.DEFAULT_RUNS_TO_KEEP }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          echo "::group::Cleanup Configuration"
+          echo "Runs to keep per workflow: $RUNS_TO_KEEP"
+          echo "Dry run mode: $DRY_RUN"
+          echo "::endgroup::"
+
+          # Get all workflows
+          echo "::group::Fetching workflows"
+          workflows=$(gh api repos/${{ github.repository }}/actions/workflows --paginate --jq '.workflows[].id')
+          workflow_count=$(echo "$workflows" | wc -l | tr -d ' ')
+          echo "Found $workflow_count workflows"
+          echo "::endgroup::"
+
+          total_deleted=0
+          total_kept=0
+
+          # Process each workflow
+          for workflow_id in $workflows; do
+            # Get workflow name
+            workflow_name=$(gh api repos/${{ github.repository }}/actions/workflows/$workflow_id --jq '.name')
+
+            echo "::group::Processing: $workflow_name (ID: $workflow_id)"
+
+            # Get all runs for this workflow (sorted by created date, newest first)
+            runs=$(gh api "repos/${{ github.repository }}/actions/workflows/$workflow_id/runs" \
+              --paginate \
+              --jq '.workflow_runs[] | select(.status == "completed") | .id' 2>/dev/null || echo "")
+
+            if [ -z "$runs" ]; then
+              echo "No completed runs found"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Convert to array
+            readarray -t run_ids <<< "$runs"
+            total_runs=${#run_ids[@]}
+
+            echo "Total completed runs: $total_runs"
+            echo "Runs to keep: $RUNS_TO_KEEP"
+
+            # Calculate runs to delete
+            if [ "$total_runs" -le "$RUNS_TO_KEEP" ]; then
+              echo "All runs will be kept (total runs <= retention count)"
+              total_kept=$((total_kept + total_runs))
+              echo "::endgroup::"
+              continue
+            fi
+
+            runs_to_delete=$((total_runs - RUNS_TO_KEEP))
+            echo "Runs to delete: $runs_to_delete"
+
+            # Keep first N runs, delete the rest
+            deleted_count=0
+            for ((i=$RUNS_TO_KEEP; i<$total_runs; i++)); do
+              run_id="${run_ids[$i]}"
+
+              # Get run details for logging
+              run_details=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" \
+                --jq '{number: .run_number, created: .created_at, status: .status, conclusion: .conclusion}')
+
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "[DRY RUN] Would delete run #$(echo "$run_details" | jq -r '.number') (created: $(echo "$run_details" | jq -r '.created'))"
+              else
+                echo "Deleting run #$(echo "$run_details" | jq -r '.number') (created: $(echo "$run_details" | jq -r '.created'))"
+
+                # Delete the run
+                if gh api -X DELETE "repos/${{ github.repository }}/actions/runs/$run_id" --silent; then
+                  deleted_count=$((deleted_count + 1))
+                else
+                  echo "Warning: Failed to delete run $run_id"
+                fi
+
+                # Small delay to avoid rate limiting
+                sleep 0.5
+              fi
+            done
+
+            total_deleted=$((total_deleted + deleted_count))
+            total_kept=$((total_kept + RUNS_TO_KEEP))
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Summary: Would delete $deleted_count runs, keep $RUNS_TO_KEEP runs"
+            else
+              echo "Summary: Deleted $deleted_count runs, kept $RUNS_TO_KEEP runs"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          # Final summary
+          echo "::group::Cleanup Summary"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN MODE - No runs were actually deleted"
+            echo "Would delete: $total_deleted runs"
+            echo "Would keep: $total_kept runs"
+          else
+            echo "Total runs deleted: $total_deleted"
+            echo "Total runs kept: $total_kept"
+          fi
+          echo "::endgroup::"
+
+          # Create job summary
+          {
+            echo "# Workflow Logs Cleanup Summary"
+            echo ""
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "**Mode:** Dry Run (preview only)"
+              echo ""
+              echo "- Runs that would be deleted: **$total_deleted**"
+              echo "- Runs that would be kept: **$total_kept**"
+            else
+              echo "**Mode:** Execution"
+              echo ""
+              echo "- Runs deleted: **$total_deleted**"
+              echo "- Runs kept: **$total_kept**"
+            fi
+            echo ""
+            echo "**Configuration:**"
+            echo "- Runs to keep per workflow: **$RUNS_TO_KEEP**"
+            echo "- Workflows processed: **$workflow_count**"
+          } >> $GITHUB_STEP_SUMMARY
